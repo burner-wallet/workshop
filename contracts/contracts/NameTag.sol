@@ -12,7 +12,7 @@ contract NameTag is FreeGas {
   }
 
   function setName(string calldata newName) external {
-    _names[msg.sender] = newName;
-    emit NameSet(msg.sender, newName);
+    _names[_msgSender()] = newName;
+    emit NameSet(_msgSender(), newName);
   }
 }
