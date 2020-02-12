@@ -93,7 +93,7 @@ const BurnerWallet = () =>
 
 We're going to start fresh: go to https://github.com/burner-wallet/sample-plugin and clone the repo.
 
-## 6. Add a staic page
+## 6. Add a static page
 
 Declare the page "and a button" in the plugin entry point.
 
@@ -110,6 +110,23 @@ Declare the page "and a button" in the plugin entry point.
 
 ## 7. Display token balances
 
+```jsx
+const MyPage = ({ BurnerComponents }) => {
+  const { Page, AccountBalance } = BurnerComponents;
+  return (
+    <Page>
+      <AccountBalance asset="xdai" render={(data: AccountBalanceData | null) => (
+        <div>
+          {data
+            ? `Your xDai balance: ${data.displayBalance}`
+            : 'Loading...'}
+        </div>
+      )} />
+    </Page>
+  );
+};
+```
+
 ## 8. Add a custom QR code handler
 
 Add a handler function to the 
@@ -121,7 +138,7 @@ Add a handler function to the
       if (QR_REGEX.test(scan)) {
         const amount = QR_REGEX.exec(scan)[1];
         ctx.actions.send({
-          asset: 'keth',
+          asset: 'geth',
           to: '0x3431c5139Bb6F5ba16E4d55EF2420ba8E0E127F6',
           ether: amount,
         });
