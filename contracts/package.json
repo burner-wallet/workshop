@@ -1,0 +1,11 @@
+{
+  "name": "contracts",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^1.0.30",
+    "dotenv": "^8.2.0",
+    "openzeppelin-solidity": "^2.5.0"
+  }
+}
