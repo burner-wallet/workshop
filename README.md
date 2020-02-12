@@ -4,12 +4,22 @@
 
 Go to https://github.com/burner-wallet/sample-wallet and clone the repo (https://github.com/burner-wallet/sample-wallet/generate)
 
-Install dependencies & start a dev server:
+Install dependencies
 
 ```
 yarn install
-yarn start-basic
-yarn start-local
+```
+
+To use Infura, you need to create a .env file with your key:
+
+```
+REACT_APP_INFURA_KEY=dc534ef20a08423b851d5c50978f6d52
+```
+
+Start a dev server:
+
+```
+yarn start
 ```
 
 ## 2. Add a plugin
@@ -54,7 +64,7 @@ const mkr = new ERC20Asset({
 
 Add the object to the assets list.
 
-```
+```jsx
 const core = new BurnerCore({
   assets: [mkr, xdai, dai, eth],
 });
@@ -62,7 +72,7 @@ const core = new BurnerCore({
 
 ## 4. Add a Uniswap exchange
 
-```
+```jsx
 const exchange = new Exchange({
   pairs: [
     new XDaiBridge(),
@@ -87,7 +97,7 @@ We're going to start fresh: go to https://github.com/burner-wallet/sample-plugin
 
 Declare the page "and a button" in the plugin entry point.
 
-```
+```jsx
   initializePlugin(pluginContext: BurnerPluginContext) {
     this.pluginContext = pluginContext;
 
@@ -104,7 +114,7 @@ Declare the page "and a button" in the plugin entry point.
 
 Add a handler function to the 
 
-```
+```jsx
   initializePlugin(pluginContext: BurnerPluginContext) {
     const QR_REGEX = /^send:([0-9](?:\.[0-9]+)?)$/;
     pluginContext.onQRScanned((scan: string, ctx: PluginActionContext) => {
@@ -124,4 +134,133 @@ Note: QRs linking to pages in the wallet are automatically routed (unless overri
 
 ## 9. Read data from a contract
 
-## 
+[Download and import the Nametag ABI](./Nametag.json).
+
+Construct a Contract object with it and make data available from a function call.
+
+```jsx
+const CONTRACT_ADDRESS = '0x16171Bd459eCd6d638639adC9bAAEA4bF5DAb5c6';
+
+export default class MyPlugin {
+  private pluginContext: BurnerPluginContext;
+
+  initializePlugin(pluginContext: BurnerPluginContext) {
+    this.pluginContext = pluginContext;
+  }
+
+  async getName(address: string) {
+    const web3 = this.pluginContext!.getWeb3('5');
+    const contract = new web3.eth.Contract(NametagABI as any, CONTRACT_ADDRESS);
+    const name = await contract.methods.getName(address).call();
+    return name;
+  }
+}
+```
+
+Call the function in your page/element:
+
+```jsx
+const MyPage: React.FC<PluginPageContext> = ({ BurnerComponents, plugin, defaultAccount, actions }) => {
+  const [name, setName] = useState<string | null>(null);
+
+  const refreshName = async () => {
+    const name = await (plugin as NametagPlugin).getName(defaultAccount);
+    setName(name);
+  };
+
+  useEffect(() => {
+    refreshName();
+  }, [defaultAccount]);
+
+  const { Page, Button } = BurnerComponents;
+  return (
+    <Page title="Name Tag">
+      <div>Account: {defaultAccount}</div>
+      <div>Name: {name ? `"${name}"` : 'Not set'}</div>
+    </Page>
+  );
+};
+```
+
+## 10. Write contract data
+
+Add a method to your plugin contract:
+
+```jsx
+const CONTRACT_ADDRESS = '0x16171Bd459eCd6d638639adC9bAAEA4bF5DAb5c6';
+
+export default class MyPlugin implements Plugin {
+  async setName(name: string, sender: string) {
+    const web3 = this.pluginContext!.getWeb3('5');
+    const contract = new web3.eth.Contract(NametagABI as any, CONTRACT_ADDRESS);
+    await contract.methods.setName(name).send({ from: sender });
+  }
+}
+```
+
+And integrate it into your component:
+
+```jsx
+const MyPage: React.FC<PluginPageContext> = ({ BurnerComponents, plugin, defaultAccount, actions }) => {
+  const [name, setName] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  //...
+
+  const updateName = async () => {
+    setLoading(true);
+    actions.setLoading('Setting name...');
+
+    await (plugin as NametagPlugin).setName(newName, defaultAccount);
+    await refreshName();
+
+    setLoading(false);
+    actions.setLoading(null);
+    setNewName('');
+  };
+
+  const { Page, Button } = BurnerComponents;
+  return (
+    <Page title="Name Tag">
+      <div>Account: {defaultAccount}</div>
+      <div>Name: {name ? `"${name}"` : 'Not set'}</div>
+      <div>
+        Set Name: {}
+        <input value={newName} onChange={(e: any) => setNewName(e.target.value)} disabled={loading} />
+        <Button onClick={updateName} disabled={loading}>Set</Button>
+      </div>
+    </Page>
+  );
+};
+```
+
+
+## 11. Create gasless transations with Gas Station Network
+
+Adding GSN Support is easy!
+
+Add the GSN Gateway to your project:
+
+```jsx
+import { InfuraGateway, InjectedGateway, XDaiGateway, GSNGateway } from '@burner-wallet/core/gateways';
+
+const core = new BurnerCore({
+  signers: [new InjectedSigner(), new LocalSigner()],
+  gateways: [
+    new GSNGateway(),
+    new InjectedGateway(),
+    new InfuraGateway(process.env.REACT_APP_INFURA_KEY),
+    new XDaiGateway(),
+  ],
+```
+
+and add `useGSN` to send calls:
+
+```jsx
+  async setName(name: string, sender: string) {
+    const web3 = this.pluginContext!.getWeb3('5');
+    const contract = new web3.eth.Contract(NametagABI as any, CONTRACT_ADDRESS);
+    await contract.methods.setName(name).send({ from: sender, useGSN: true });
+  }
+```
